@@ -46,7 +46,7 @@ export function testJsonPath(props: { jsonPath: string; data: unknown }): {
   try {
     const parsed =
       typeof props.data === "string" ? JSON.parse(props.data) : props.data;
-    JSONPath({ path: props.jsonPath, json: parsed });
+    JSONPath({ path: props.jsonPath, json: parsed, eval: "native" }); // ALIGNABLE FORK: validate against the same eval mode used at runtime
     return { success: true };
   } catch (error) {
     return {
@@ -65,7 +65,7 @@ export function evaluateJsonPath(data: unknown, jsonPath: string): unknown {
     path: jsonPath,
     json: parsed as string | object,
     wrap: false,
-    eval: false,
+    eval: "native", // ALIGNABLE FORK: enable JSONPath filter expressions in eval mappings
   });
 
   return result;

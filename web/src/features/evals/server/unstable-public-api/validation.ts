@@ -272,7 +272,7 @@ function validateJsonPath(params: {
     JSONPath({
       path: jsonPath,
       json: {},
-      eval: false,
+      eval: "native", // ALIGNABLE FORK: enable JSONPath filter expressions in eval mappings
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

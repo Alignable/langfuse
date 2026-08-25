@@ -245,7 +245,7 @@ describe("evaluator configuration validation", () => {
             {
               templateVariable: "input",
               selectedColumnId: "input",
-              jsonSelector: '$.messages[?(@.id[2] == "HumanMessage")]',
+              jsonSelector: "$.messages[-1]",
             },
           ],
           outputDefinition: {
@@ -257,7 +257,7 @@ describe("evaluator configuration validation", () => {
         },
       }),
     ).rejects.toThrow(
-      "Filter expressions ([?...]) are not supported and will not be applied.",
+      "Negative array indices (for example, [-1]) are not supported. Use a slice such as [-1:] instead.",
     );
   });
 });

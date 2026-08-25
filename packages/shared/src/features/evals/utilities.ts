@@ -63,7 +63,7 @@ function parseJsonDefault(selectedColumn: unknown, jsonSelector: string) {
   const result = JSONPath({
     path: jsonSelector,
     json: selectedColumn as any, // JSONPath accepts unknown but types are strict
-    eval: false,
+    eval: "native", // ALIGNABLE FORK: enable JSONPath filter expressions in eval mappings
   });
 
   if (!Array.isArray(result) || result.length === 0) {
