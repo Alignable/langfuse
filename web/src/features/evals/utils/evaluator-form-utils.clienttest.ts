@@ -7,29 +7,9 @@ import {
 describe("getJsonPathCompatibilityWarning", () => {
   it.each([
     {
-      selector: "$.items[?(@.status === 'active')]",
-      expected:
-        "Filter expressions ([?...]) are not supported and will not be applied.",
-    },
-    {
-      selector: "$.items[?@.status]",
-      expected:
-        "Filter expressions ([?...]) are not supported and will not be applied.",
-    },
-    {
-      selector: "$.items[(@.length - 1)]",
-      expected:
-        "Script expressions ([(...)]) are not supported. The evaluator will use the unfiltered value instead.",
-    },
-    {
       selector: "$.items[-1]",
       expected:
         "Negative array indices (for example, [-1]) are not supported. Use a slice such as [-1:] instead.",
-    },
-    {
-      selector: "$[‘items’][?@.a]",
-      expected:
-        "Filter expressions ([?...]) are not supported and will not be applied.",
     },
   ])("warns about unsupported selector $selector", ({ selector, expected }) => {
     expect(getJsonPathCompatibilityWarning(selector)).toBe(expected);
@@ -40,6 +20,11 @@ describe("getJsonPathCompatibilityWarning", () => {
     "",
     "$.items[0]",
     "$.items[-1:]",
+    // ALIGNABLE FORK: filter and script expressions are supported under eval:"native"
+    "$.items[?(@.status === 'active')]",
+    "$.items[?@.status]",
+    "$.items[(@.length - 1)]",
+    "$[‘items’][?@.a]",
     "$['property[-1]']",
     "$['property[?(@.active)]']",
     "$['property[(@.length - 1)]']",
@@ -64,7 +49,7 @@ describe("evalConfigFormSchema", () => {
           langfuseObject: "trace",
           objectName: null,
           selectedColumnId: "input",
-          jsonSelector: "$.items[?@.status]",
+          jsonSelector: "$.items[-1]",
         },
       ],
       sampling: 1,
@@ -79,7 +64,7 @@ describe("evalConfigFormSchema", () => {
         expect.objectContaining({
           path: ["mapping", 0, "jsonSelector"],
           message:
-            "Filter expressions ([?...]) are not supported and will not be applied.",
+            "Negative array indices (for example, [-1]) are not supported. Use a slice such as [-1:] instead.",
         }),
       );
     }

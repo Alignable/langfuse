@@ -34,14 +34,9 @@ export function getJsonPathCompatibilityWarning(
 
   const selectorWithoutStrings = stripJsonPathStringLiterals(selector);
 
-  if (/\[\s*\?/u.test(selectorWithoutStrings)) {
-    return "Filter expressions ([?...]) are not supported and will not be applied.";
-  }
-
-  if (/\[\s*\(/u.test(selectorWithoutStrings)) {
-    return "Script expressions ([(...)]) are not supported. The evaluator will use the unfiltered value instead.";
-  }
-
+  // ALIGNABLE FORK: filter ([?...]) and script ([(...)]) expressions ARE
+  // supported now that JSONPath runs with eval:"native". Only the negative
+  // single-index limitation remains (jsonpath-plus needs a slice like [-1:]).
   if (/\[\s*-\d+\s*\]/u.test(selectorWithoutStrings)) {
     return "Negative array indices (for example, [-1]) are not supported. Use a slice such as [-1:] instead.";
   }
