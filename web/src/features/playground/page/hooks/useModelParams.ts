@@ -6,6 +6,7 @@ import useLocalStorage from "@/src/components/useLocalStorage";
 import {
   LLMAdapter,
   supportedModels,
+  type ModelConfig,
   type ModelParams,
   type UIModelParams,
 } from "@langfuse/shared";
@@ -21,8 +22,19 @@ type PromptConfigModel = {
 
 type UseModelParamsOptions = {
   promptConfigModel?: PromptConfigModel | null;
-  initialModel?: ModelParams;
+  // FORK: accept the eval dialog's nested `modelParams` shape, not only flat.
+  initialModel?: ModelParams & { modelParams?: ModelConfig };
 };
+
+// FORK: flatten a nested `modelParams` so saved values (e.g. reasoning effort)
+// hydrate instead of resetting to adapter defaults on dialog reopen.
+function flattenInitialModel(
+  initialModel: UseModelParamsOptions["initialModel"],
+): ModelParams | undefined {
+  if (!initialModel) return undefined;
+  const { modelParams, ...rest } = initialModel;
+  return modelParams ? { ...rest, ...modelParams } : rest;
+}
 
 /**
  * Hook for managing model parameters with window isolation support
@@ -36,7 +48,7 @@ export const useModelParams = (
   options?: UseModelParamsOptions,
 ) => {
   const [modelParams, setModelParams] = useState<UIModelParams>(() => {
-    const initialModel = options?.initialModel;
+    const initialModel = flattenInitialModel(options?.initialModel);
     return {
       ...getDefaultAdapterParams(initialModel?.adapter ?? LLMAdapter.OpenAI),
       ...getEnabledModelParamState(initialModel ?? {}),
