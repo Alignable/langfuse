@@ -2518,6 +2518,220 @@ describe("OTel Resource Span Mapping", () => {
       );
     });
 
+    it("should subtract the per-TTL cache creation buckets from inclusive input tokens", async () => {
+      // The per-TTL buckets are priced but were never subtracted on this path,
+      // so their tokens were billed twice: once at the full input rate inside
+      // the inclusive input count, and again at the cache-write rate. The `ai`
+      // scope already subtracts them; this keeps the generic path consistent.
+      const traceId = "abcdef1234567890abcdef1234567893";
+
+      const ttlSpan = {
+        resource: {
+          attributes: [
+            {
+              key: "telemetry.sdk.language",
+              value: { stringValue: "erlang" },
+            },
+            {
+              key: "service.name",
+              value: { stringValue: "test-service" },
+            },
+          ],
+        },
+        scopeSpans: [
+          {
+            scope: {
+              name: "custom-instrumentation",
+              version: "1.0.0",
+              attributes: [],
+            },
+            spans: [
+              {
+                traceId: Buffer.from(traceId, "hex"),
+                spanId: Buffer.from("80854cd6bd218bf8", "hex"),
+                name: "gen-ai-ttl-cache-creation-test",
+                kind: 1,
+                startTimeUnixNano: {
+                  low: 1000000,
+                  high: 406528574,
+                  unsigned: true,
+                },
+                endTimeUnixNano: {
+                  low: 2000000,
+                  high: 406528574,
+                  unsigned: true,
+                },
+                attributes: [
+                  {
+                    key: "gen_ai.usage.input_tokens",
+                    value: {
+                      intValue: { low: 50000, high: 0, unsigned: false },
+                    },
+                  },
+                  {
+                    key: "gen_ai.usage.output_tokens",
+                    value: {
+                      intValue: { low: 200, high: 0, unsigned: false },
+                    },
+                  },
+                  {
+                    key: "gen_ai.usage.cache_read.input_tokens",
+                    value: {
+                      intValue: { low: 40000, high: 0, unsigned: false },
+                    },
+                  },
+                  {
+                    key: "gen_ai.usage.cache_creation.input_tokens",
+                    value: {
+                      intValue: { low: 0, high: 0, unsigned: false },
+                    },
+                  },
+                  {
+                    key: "gen_ai.usage.input_cache_creation_5m",
+                    value: {
+                      intValue: { low: 4000, high: 0, unsigned: false },
+                    },
+                  },
+                  {
+                    key: "gen_ai.usage.input_cache_creation_1h",
+                    value: {
+                      intValue: { low: 1000, high: 0, unsigned: false },
+                    },
+                  },
+                ],
+                events: [],
+                status: { code: 1 },
+              },
+            ],
+          },
+        ],
+      };
+
+      const events = await convertOtelSpanToIngestionEvent(ttlSpan, new Set());
+
+      const observationEvent = events.find((e) => e.type === "span-create");
+
+      expect(observationEvent).toBeDefined();
+      // input must be the uncached remainder: 50000 - 40000 - 4000 - 1000 = 5000
+      expect(observationEvent?.body.usageDetails.input).toBe(5000);
+      expect(observationEvent?.body.usageDetails.output).toBe(200);
+      expect(observationEvent?.body.usageDetails.input_cached_tokens).toBe(
+        40000,
+      );
+      expect(observationEvent?.body.usageDetails.input_cache_creation).toBe(0);
+      expect(observationEvent?.body.usageDetails.input_cache_creation_5m).toBe(
+        4000,
+      );
+      expect(observationEvent?.body.usageDetails.input_cache_creation_1h).toBe(
+        1000,
+      );
+    });
+
+    it("should reduce the cache creation rollup to its residual when the per-TTL breakdown is also reported", async () => {
+      // Anthropic reports cache_creation_input_tokens as the sum of its 5m + 1h
+      // buckets. Pricing both the rollup and the breakdown would double-charge,
+      // so the rollup keeps only what the breakdown does not account for.
+      const traceId = "abcdef1234567890abcdef1234567894";
+
+      const ttlSpan = {
+        resource: {
+          attributes: [
+            {
+              key: "telemetry.sdk.language",
+              value: { stringValue: "erlang" },
+            },
+            {
+              key: "service.name",
+              value: { stringValue: "test-service" },
+            },
+          ],
+        },
+        scopeSpans: [
+          {
+            scope: {
+              name: "custom-instrumentation",
+              version: "1.0.0",
+              attributes: [],
+            },
+            spans: [
+              {
+                traceId: Buffer.from(traceId, "hex"),
+                spanId: Buffer.from("80854cd6bd218bf9", "hex"),
+                name: "gen-ai-ttl-rollup-residual-test",
+                kind: 1,
+                startTimeUnixNano: {
+                  low: 1000000,
+                  high: 406528574,
+                  unsigned: true,
+                },
+                endTimeUnixNano: {
+                  low: 2000000,
+                  high: 406528574,
+                  unsigned: true,
+                },
+                attributes: [
+                  {
+                    key: "gen_ai.usage.input_tokens",
+                    value: {
+                      intValue: { low: 50000, high: 0, unsigned: false },
+                    },
+                  },
+                  {
+                    key: "gen_ai.usage.output_tokens",
+                    value: {
+                      intValue: { low: 200, high: 0, unsigned: false },
+                    },
+                  },
+                  {
+                    key: "gen_ai.usage.cache_read.input_tokens",
+                    value: {
+                      intValue: { low: 40000, high: 0, unsigned: false },
+                    },
+                  },
+                  {
+                    key: "gen_ai.usage.cache_creation.input_tokens",
+                    value: {
+                      intValue: { low: 5000, high: 0, unsigned: false },
+                    },
+                  },
+                  {
+                    key: "gen_ai.usage.input_cache_creation_5m",
+                    value: {
+                      intValue: { low: 4000, high: 0, unsigned: false },
+                    },
+                  },
+                  {
+                    key: "gen_ai.usage.input_cache_creation_1h",
+                    value: {
+                      intValue: { low: 1000, high: 0, unsigned: false },
+                    },
+                  },
+                ],
+                events: [],
+                status: { code: 1 },
+              },
+            ],
+          },
+        ],
+      };
+
+      const events = await convertOtelSpanToIngestionEvent(ttlSpan, new Set());
+
+      const observationEvent = events.find((e) => e.type === "span-create");
+
+      expect(observationEvent).toBeDefined();
+      // The rollup is fully accounted for by the breakdown, so it must not be
+      // subtracted a second time: 50000 - 40000 - 4000 - 1000 = 5000
+      expect(observationEvent?.body.usageDetails.input).toBe(5000);
+      expect(observationEvent?.body.usageDetails.input_cache_creation).toBe(0);
+      expect(observationEvent?.body.usageDetails.input_cache_creation_5m).toBe(
+        4000,
+      );
+      expect(observationEvent?.body.usageDetails.input_cache_creation_1h).toBe(
+        1000,
+      );
+    });
+
     it("should prepend gen_ai.system_instructions to pydantic_ai.all_messages input when system message is absent", async () => {
       const traceId = "9d7aa9a729def1eadc0b2063ca4ebeb4";
 
