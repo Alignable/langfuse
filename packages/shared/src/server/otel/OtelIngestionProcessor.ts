@@ -2920,6 +2920,20 @@ export class OtelIngestionProcessor {
       rawUsageDetails["details.cache_creation_input_tokens"] ??
       rawUsageDetails["prompt_details.cache_write"] ??
       rawUsageDetails["input_cache_creation"];
+    // Per-TTL cache creation buckets are priced individually (a 1h write costs
+    // more than a 5m one), so they stay their own usage types instead of being
+    // folded into cacheCreationTokens. They are still part of the inclusive
+    // input count, so they are subtracted from it below.
+    const ttlCacheCreationTokens =
+      (rawUsageDetails["input_cache_creation_5m"] ?? 0) +
+      (rawUsageDetails["input_cache_creation_1h"] ?? 0);
+    // The rollup equals the sum of its per-TTL buckets, so keep only the
+    // residual — which is the whole rollup when no breakdown was reported.
+    // Mirrors the `ai` scope handling above.
+    const cacheCreationResidual = Math.max(
+      (cacheCreationTokens ?? 0) - ttlCacheCreationTokens,
+      0,
+    );
     // Reasoning/audio details are included in the emitted output token count
     // and are therefore subtracted from output below to avoid double counting.
     const outputReasoningTokens =
@@ -2973,7 +2987,10 @@ export class OtelIngestionProcessor {
 
     if (inputTokens !== undefined) {
       normalizedUsageDetails.input = Math.max(
-        inputTokens - (cacheReadTokens ?? 0) - (cacheCreationTokens ?? 0),
+        inputTokens -
+          (cacheReadTokens ?? 0) -
+          cacheCreationResidual -
+          ttlCacheCreationTokens,
         0,
       );
     }
@@ -2994,7 +3011,7 @@ export class OtelIngestionProcessor {
     }
 
     if (cacheCreationTokens !== undefined) {
-      normalizedUsageDetails.input_cache_creation = cacheCreationTokens;
+      normalizedUsageDetails.input_cache_creation = cacheCreationResidual;
     }
 
     if (outputReasoningTokens !== undefined) {
