@@ -2,6 +2,7 @@ import {
   EvaluatorPromptMessagesSchema,
   InvalidRequestError,
   publicApiPaginationLimitZod,
+  ZodModelConfig,
 } from "@langfuse/shared";
 import { z } from "zod";
 import {
@@ -44,6 +45,12 @@ const EvaluatorModelConfig = z
   .object({
     provider: z.string().min(1),
     model: z.string().min(1),
+    // ALIGNABLE FORK delta: expose the judge model's sampling parameters
+    // (temperature, top_p, max_tokens, maxReasoningTokens, providerOptions) so
+    // they can be read and written through the public API. Reuses the internal
+    // ZodModelConfig so the public surface matches what the UI/worker persist and
+    // apply. Unknown keys are stripped by ZodModelConfig.
+    modelParams: ZodModelConfig.nullish(),
   })
   .strict();
 

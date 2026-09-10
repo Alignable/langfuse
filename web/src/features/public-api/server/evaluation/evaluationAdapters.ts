@@ -6,6 +6,7 @@ import {
   PersistedEvalOutputDefinitionSchema,
   resolvePersistedEvalOutputDefinition,
   variableMappingList,
+  ZodModelConfig,
   type FilterState,
   type ObservationVariableMapping,
 } from "@langfuse/shared";
@@ -281,6 +282,12 @@ export function toPublicEvaluatorVersion(
     throw new InternalServerError("Evaluator prompt messages are corrupted");
   }
   const prompt = version.promptMessages;
+  // ALIGNABLE FORK delta: surface the persisted judge sampling parameters.
+  // version.modelParams is a Prisma JsonValue, so parse defensively and fall
+  // back to null rather than throwing on unexpected stored shapes.
+  const parsedModelParams = ZodModelConfig.nullable().safeParse(
+    version.modelParams ?? null,
+  );
   return EvaluatorVersion.parse({
     ...common,
     type: PUBLIC_EVALUATOR_TYPE_LLM_AS_JUDGE,
@@ -298,6 +305,9 @@ export function toPublicEvaluatorVersion(
         ? {
             provider: version.provider,
             model: version.model,
+            modelParams: parsedModelParams.success
+              ? parsedModelParams.data
+              : null,
           }
         : null,
     outputDefinition: toPublicOutputDefinition(version.outputDefinition),
