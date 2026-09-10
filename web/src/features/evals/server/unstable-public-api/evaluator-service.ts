@@ -111,7 +111,10 @@ function toDefinition(
     prompt: input.prompt,
     provider: input.modelConfig?.provider ?? null,
     model: input.modelConfig?.model ?? null,
-    modelParams: null,
+    // ALIGNABLE FORK delta: persist the caller-supplied judge sampling
+    // parameters instead of dropping them. The worker already applies
+    // template.modelParams at evaluation time.
+    modelParams: input.modelConfig?.modelParams ?? null,
     vars: extractVariables(input.prompt),
     variableMapping:
       input.mapping === undefined
