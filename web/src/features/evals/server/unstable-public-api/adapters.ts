@@ -19,6 +19,7 @@ import {
   InternalServerError,
   CODE_EVAL_TEMPLATE_VARIABLES,
   getCodeEvalVariableMapping,
+  ZodModelConfig,
 } from "@langfuse/shared";
 import { EvalTemplateType } from "@langfuse/shared/src/db";
 import { logger } from "@langfuse/shared/src/server";
@@ -252,9 +253,17 @@ function toApiModelConfig(
     return null;
   }
 
+  // ALIGNABLE FORK delta: surface the persisted judge sampling parameters.
+  // template.modelParams is a Prisma JsonValue, so parse defensively and fall
+  // back to null rather than throwing on unexpected stored shapes.
+  const parsedModelParams = ZodModelConfig.nullable().safeParse(
+    template.modelParams ?? null,
+  );
+
   return {
     provider: template.provider,
     model: template.model,
+    modelParams: parsedModelParams.success ? parsedModelParams.data : null,
   };
 }
 
