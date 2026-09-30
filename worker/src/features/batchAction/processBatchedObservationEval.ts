@@ -9,8 +9,10 @@ import {
   type ObservationEvalRule,
 } from "../evaluation/observationEval";
 
-const BATCH_SIZE = 500;
-const CONCURRENCY_LIMIT = 50;
+// Lowered from 500/50 to cut peak worker memory on large observations.
+// Throughput (~30 rows/s) must still fit the stream's request_timeout.
+const BATCH_SIZE = 100;
+const CONCURRENCY_LIMIT = 25;
 const MAX_ERROR_LOG_LINES = 20;
 
 export async function processBatchedObservationEval(params: {
