@@ -83,7 +83,9 @@ export const getEventsStreamForEval = async (props: {
     query,
     params: queryParams,
     clickhouseConfigs: {
-      request_timeout: 180_000,
+      // The stream stays open while the worker schedules each row, so the
+      // server-side max_execution_time (derived from this) bounds batch size.
+      request_timeout: 1_800_000,
       clickhouse_settings: {
         http_send_timeout: 300,
         http_receive_timeout: 300,
